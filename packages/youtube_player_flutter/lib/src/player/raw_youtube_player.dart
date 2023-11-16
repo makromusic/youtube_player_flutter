@@ -9,6 +9,14 @@ import '../enums/player_state.dart';
 import '../utils/youtube_meta_data.dart';
 import '../utils/youtube_player_controller.dart';
 
+const _handlerNameReady = 'Ready';
+const _handlerNameStateChange = 'StateChange';
+const _handlerNamePlaybackQualityChange = 'PlaybackQualityChange';
+const _handlerNamePlaybackRateChange = 'PlaybackRateChange';
+const _handlerNameErrors = 'Errors';
+const _handlerNameVideoData = 'VideoData';
+const _handlerNameVideoTime = 'VideoTime';
+
 /// A raw youtube player widget which interacts with the underlying webview inorder to play YouTube videos.
 ///
 /// Use [YoutubePlayer] instead.
@@ -35,7 +43,7 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
   PlayerState? _cachedPlayerState;
   bool _isPlayerReady = false;
   bool _onLoadStopCalled = false;
-
+  InAppWebViewController? _webController;
   @override
   void initState() {
     super.initState();
@@ -44,6 +52,16 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
 
   @override
   void dispose() {
+    _webController?.removeJavaScriptHandler(handlerName: _handlerNameReady);
+    _webController?.removeJavaScriptHandler(
+        handlerName: _handlerNameStateChange);
+    _webController?.removeJavaScriptHandler(
+        handlerName: _handlerNamePlaybackQualityChange);
+    _webController?.removeJavaScriptHandler(
+        handlerName: _handlerNamePlaybackRateChange);
+    _webController?.removeJavaScriptHandler(handlerName: _handlerNameErrors);
+    _webController?.removeJavaScriptHandler(handlerName: _handlerNameVideoData);
+    _webController?.removeJavaScriptHandler(handlerName: _handlerNameVideoTime);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -102,12 +120,14 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
           ),
         ),
         onWebViewCreated: (webController) {
+          _webController = webController;
+
           controller!.updateValue(
             controller!.value.copyWith(webViewController: webController),
           );
           webController
             ..addJavaScriptHandler(
-              handlerName: 'Ready',
+              handlerName: _handlerNameReady,
               callback: (_) {
                 _isPlayerReady = true;
                 if (_onLoadStopCalled) {
@@ -118,7 +138,7 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
               },
             )
             ..addJavaScriptHandler(
-              handlerName: 'StateChange',
+              handlerName: _handlerNameStateChange,
               callback: (args) {
                 switch (args.first as int) {
                   case -1:
@@ -175,7 +195,7 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
               },
             )
             ..addJavaScriptHandler(
-              handlerName: 'PlaybackQualityChange',
+              handlerName: _handlerNamePlaybackQualityChange,
               callback: (args) {
                 controller!.updateValue(
                   controller!.value
@@ -184,7 +204,7 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
               },
             )
             ..addJavaScriptHandler(
-              handlerName: 'PlaybackRateChange',
+              handlerName: _handlerNamePlaybackRateChange,
               callback: (args) {
                 final num rate = args.first;
                 controller!.updateValue(
@@ -193,15 +213,16 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
               },
             )
             ..addJavaScriptHandler(
-              handlerName: 'Errors',
+              handlerName: _handlerNameErrors,
               callback: (args) {
                 controller!.updateValue(
-                  controller!.value.copyWith(errorCode: int.parse(args.first)),
+                  controller!.value
+                      .copyWith(errorCode: int.parse(args.first.toString())),
                 );
               },
             )
             ..addJavaScriptHandler(
-              handlerName: 'VideoData',
+              handlerName: _handlerNameVideoData,
               callback: (args) {
                 controller!.updateValue(
                   controller!.value.copyWith(
@@ -210,7 +231,7 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
               },
             )
             ..addJavaScriptHandler(
-              handlerName: 'VideoTime',
+              handlerName: _handlerNameVideoTime,
               callback: (args) {
                 final position = args.first * 1000;
                 final num buffered = args.last;
